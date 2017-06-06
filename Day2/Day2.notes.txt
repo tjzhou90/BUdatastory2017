@@ -1,0 +1,34 @@
+## Accessing Data
+
+Sometimes we can also use 'require' instead of library
+require - if you don't have the package, R will automatically install it
+
+ggplot2 always takes dataframes.
+It always deals with 2 dimensions.
+aes = deals with x and y, has nothing to do with displaying, only the mapping
+geom_point = deals with the display
+
+when we want to view the data (data(mpg)), we get promise, this is lazy loading. because R has no need for the variable yet, it will not display it
+
+%+% ONLY used in ggplot
+If you already have a plot, this symbol lets you modify it.
+
+*** Consider this when dealing with data...
+Who collected it? How is it processed? Can you reproduce it?
+Do you have the right to use it, cite it?
+How is it accessed? Can you red it? Secure? Encrypted?
+
+## playing with the buoy data
+
+paste0 to directly concatenate strings together
+paste requires a separator
+ymd_h converts string to date time format, needs lubridate package
+
+
+## Reading data files
+Reading database files, as.is=T will convert characters into factors
+Reading Json files, simplifyVector=T will return a dataframe instead of list
+
+
+
+
