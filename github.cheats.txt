@@ -1,2 +1,5 @@
-git clone
+git clone address
 git status
+git add filename
+git commit -m "message added file"
+git push
