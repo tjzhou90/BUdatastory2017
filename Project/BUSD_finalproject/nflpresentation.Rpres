@@ -1,0 +1,65 @@
+Crime rate within the NFL
+========================================================
+author: Thomas Zhou
+date: 6/9/2017
+autosize: true
+
+Background
+========================================================
+
+- Arrest data for NFL players from the past 17 years, since 2000
+- Define crime rate as the sum of arrests, charges, indictments, surrenders, citations, etc.
+-  
+- 
+
+Slide With Code
+========================================================
+
+```{r, echo=FALSE}
+library(tidyr)
+library(dplyr)
+
+## LOAD DATA
+setwd("/Users/tjzhou/Desktop/MyGithub/BUdatastory2017/Project/BUSD_finalproject/");
+nfl.raw <- read.csv("nfl_arrest_data.csv");
+nfl.d1 <- nfl.raw;
+nfl.d1$POS <- as.character(nfl.d1$POS);
+nfl.d1$CATEGORY <- as.character(nfl.d1$CATEGORY);
+nfl.d1$DATE <- as.Date(nfl.d1$DATE, format="%m/%d/%Y");
+
+## RECATEGORIZE POSITION INTO OFFENSE/DEFENSE ROLES
+nfl.d1$ROLE <- array("",dim=c(nrow(nfl.d1),1));
+role.list <- c('Offense', 'Defense', 'Special');
+offense <- c('C', 'QB', 'RB', 'WR', 'TE', 'FB', 'OG', 'OL', 'OT');
+defense <- c('DB', 'DE', 'DE/DT', 'DT', 'LB', 'CB', 'S');
+special <- c('K', 'P');
+pos.list <- list(offense, defense, special);
+
+## CATEGORIZE USING MATCH
+for (i in 1:length(role.list)){
+  nfl.d1$ROLE <- ifelse(!is.na(match(nfl.d1$POS,pos.list[[i]])), role.list[i], nfl.d1$ROLE);
+}
+## DROP UNUSED COLUMNS
+nfl.d1 <- nfl.d1 %>% select(DATE, ROLE, CASE, CATEGORY);
+
+## CONVERT DATE TO MONTH AND YEAR
+nfl.d1$MONTH <- as.factor(as.numeric(format(nfl.d1$DATE, "%m")));
+nfl.d1$YEAR <- as.factor(format(nfl.d1$DATE, "%Y"));
+
+## FILTER OUT CASES TO KEEP ONLY ARRESTED FOR CRIMES IN ALCOHOL AND VIOLENCE
+nfl.d1 <- nfl.d1[which(nfl.d1$CASE == "Arrested"),];
+nfl.d1$CATEGORY <- toupper(nfl.d1$CATEGORY);
+nfl.alcohol <- unique(nfl.d1[c(grep("DUI",nfl.d1$CATEGORY),grep("ALCOHOL",nfl.d1$CATEGORY),grep("INTOXICATION",nfl.d1$CATEGORY)),]);
+nfl.violence <- unique(nfl.d1[c(grep("VIOLENCE",nfl.d1$CATEGORY),grep("ASSAULT",nfl.d1$CATEGORY),grep("GUN",nfl.d1$CATEGORY)),]);
+
+
+summary(nfl.d1)
+
+```
+
+Slide With Plot
+========================================================
+
+```{r, echo=FALSE}
+plot(cars)
+```

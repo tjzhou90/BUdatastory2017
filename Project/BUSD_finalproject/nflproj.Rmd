@@ -1,0 +1,218 @@
+---
+title: "NFL players arrests"
+subtitle: "BUSD 2017 Project"
+author: "Thomas Zhou"
+date: "June 9, 2017"
+always_allow_html: yes
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE)
+```
+
+## Background
+
+- NFL players have often gotten into a range of offences from DUI to assault to murder
+- One of the most infamous cases in recent times is the case of Aaron Hernandez of the New England Patriots, who was 
+charged with first-degree murder in death of friend Odin Lloyd.
+- Arrest data (https://www.usatoday.com/sports/nfl/arrests/) for NFL players from the past 17 years, including:
+    * arrests, charges, indictments, surrenders, citations, etc.
+    * Most recent record: Roger Lewis, WR, NYG, 6/4/2017, arrested for DUI and drugs
+    * Earliest record: Rod Smith, WR, DEN, 1/24/2000, arrested for domestic violence   
+    
+- Define alcohol related crimes as arrests made on DUI, Public Intoxication, or Alcohol
+- Define violence related crimes as Domestic Violence, Assault, Rape, Murder
+- A very large proportion of arrests were made up of crimes involving alcohol and/or violence
+    * Is there time trend with respect to the crimes committed?
+    * Is there any connection between the player positions and the types of crime committed?    
+
+\newpage
+## Re-categorizing player positions
+- Define player position category as offense, defense, and special team:
+    * offense: C, QB, RB, WR, TE, FB, OG, OL, OT
+    * defense: DB, DE, DE/DT, DT, LB, CB, S
+    * special team: K, P   
+    *   
+![NFL player positions](2000px-American_football_officials_positions.svg.png);
+    
+```{r,echo=FALSE, message=FALSE, warning=FALSE}
+## LOAD LIBRARIES
+library(tidyr)
+library(dplyr)
+library(DiagrammeR)
+library(xtable)
+library(ggplot2)
+library(grid)
+library(knitr)
+```
+
+```{r, echo=FALSE}
+## LOAD DATA
+setwd("/Users/tjzhou/Desktop/MyGithub/BUdatastory2017/Project/BUSD_finalproject/");
+nfl.raw <- read.csv("nfl_arrest_data.csv");
+nfl.d1 <- nfl.raw;
+nfl.d1$POS <- as.character(nfl.d1$POS);
+nfl.d1$CATEGORY <- as.character(nfl.d1$CATEGORY);
+nfl.d1$DATE <- as.Date(nfl.d1$DATE, format="%m/%d/%Y");
+
+## RECATEGORIZE POSITION INTO OFFENSE/DEFENSE ROLES
+nfl.d1$ROLE <- array("",dim=c(nrow(nfl.d1),1));
+role.list <- c('Offense', 'Defense', 'Special');
+offense <- c('C', 'QB', 'RB', 'WR', 'TE', 'FB', 'OG', 'OL', 'OT');
+defense <- c('DB', 'DE', 'DE/DT', 'DT', 'LB', 'CB', 'S');
+special <- c('K', 'P');
+pos.list <- list(offense, defense, special);
+
+## CATEGORIZE USING MATCH
+for (i in 1:length(role.list)){
+  nfl.d1$ROLE <- ifelse(!is.na(match(nfl.d1$POS,pos.list[[i]])), role.list[i], nfl.d1$ROLE);
+}
+nfl.d1$ROLE <- as.factor(nfl.d1$ROLE);
+
+## DROP UNUSED COLUMNS, ONLY KEEP DATE, ROLE, CATEGORY
+nfl.d1 <- nfl.d1[which(nfl.d1$CASE == "Arrested"),];
+nfl.d1 <- nfl.d1 %>% select(DATE, ROLE, CATEGORY);
+
+## CONVERT DATE TO MONTH AND YEAR
+nfl.d1$MONTH <- as.factor(month.abb[as.numeric(format(nfl.d1$DATE, "%m"))]);
+nfl.d1$YEAR <- as.factor(format(nfl.d1$DATE, "%Y"));
+
+## FILTER OUT CASES TO KEEP ONLY ARRESTED FOR CRIMES IN ALCOHOL AND VIOLENCE
+nfl.d1$CATEGORY <- toupper(nfl.d1$CATEGORY);
+nfl.alcohol <- unique(nfl.d1[c(grep("DUI",nfl.d1$CATEGORY),grep("ALCOHOL",nfl.d1$CATEGORY),grep("INTOXICATION",nfl.d1$CATEGORY)),]);
+nfl.violence <- unique(nfl.d1[c(grep("VIOLENCE",nfl.d1$CATEGORY),grep("ASSAULT",nfl.d1$CATEGORY),grep("GUN",nfl.d1$CATEGORY)),]);
+nfl.alcohol$CATEGORY <- as.factor("Alcohol");
+nfl.violence$CATEGORY <- as.factor("Violence");
+nfl.d2 <- rbind(nfl.alcohol, nfl.violence);
+nfl.d2 <- nfl.d2[order(nfl.d2$DATE,decreasing = TRUE),];
+```
+
+\newpage
+
+## Flowchart for filtering the data
+
+```{r, echo=FALSE}
+grViz("digraph a_nice_graph {
+        
+        # node definitions with substituted label text
+        node [fontname = Helvetica, shape = rectangle]        
+        rec1 [label = '@@1']
+        rec3 [label = '@@4']
+
+        node [fontname = Helvetica, shape = oval]
+        ova1 [label = '@@2']
+        ova2 [label = '@@3']
+
+        # edge definitions with the node IDs
+        rec1 -> ova1 -> ova2 -> rec3
+        }
+      
+        [1]: 'raw data  (n = 858)'
+        [2]: 'arrests  (n = 739)'
+        [3]: 'alcohol (n = 271), violence (n = 211)'
+        [4]: 'filtered data (n = 474)'
+      ")
+```
+
+![Flow diagram of filtering final dataset](flowchart.png)
+
+\newpage
+
+## Descriptive statistics of players involved in alcohol related crimes
+```{r,echo=FALSE,results='asis'}
+# summary(nfl.d2);
+table.d2 <- xtable(summary(nfl.d2, maxsum=20), digits=c(0,0,2,2,2,2), 
+                   caption="Summary statistics of NFL players arrested for crimes involving alcohol and violence, between 2000-2017.", 
+       display = c("s","f","f","f","f","f"),align="l|rrrrr|")
+print(table.d2,
+      type="latex", 
+      caption.placement="bottom",
+      hline.after = c(-1,0,18),
+      comment=FALSE,
+      include.rownames=FALSE
+      )
+```
+
+\newpage
+
+```{r,echo=FALSE}
+## DEFINE MULTIPLOT FUNCTION
+multiplot <- function(..., plotlist = NULL, file, cols = 1, layout = NULL) {
+  # require(grid)
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+  if (numPlots == 1) {
+    print(plots[[1]])
+
+  } else {
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+## Number of NFL players arrested for crimes involving alcohol or violence by year and month from 2000-2017
+```{r, echo=FALSE}
+plot.d2 <- ggplot(nfl.d2) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"));
+plot.year <- plot.d2 + geom_bar(aes(x=YEAR, fill=CATEGORY)) + xlab("Year") + ylab(NULL) +
+  theme(axis.text.x=element_text(angle=-45,hjust=0)) + guides(fill=FALSE);
+plot.month <- plot.d2 + geom_bar(aes(x=as.numeric(MONTH), fill=CATEGORY)) + xlab("Month") + ylab(NULL) +
+  scale_x_discrete(limits=c("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"));
+
+multiplot(plot.year, plot.month);
+```
+
+## Number of NFL players arrested for crimes involving alcohol or violence by player position category from 2000-2017
+
+```{r, echo=FALSE}
+plot.d2 <- ggplot(nfl.d2) + theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"));
+plot.role <- plot.d2 + geom_bar(aes(x=ROLE, fill=CATEGORY)) + xlab("Position Category") + ylab(NULL);
+plot.role;
+```
+
+\newpage
+
+## Chi-square test result
+
+![Simple 2x2 table of crime by position categories](rolechisqtable.PNG)  
+
+There is no significant association between player position and crime category. 
+
+![Simple 2x2 table of crime by seasons](seasonalchisq.PNG)  
+
+There is no significant association between the seasons and crime category  
+
+
+```{r,echo=FALSE}
+## EXPORT MODIFIED DATASET TO TEXT AND SAS
+# write.table(nfl.d2, "/Users/tjzhou/Desktop/MyGithub/BUdatastory2017/Project/BUSD_finalproject/data2.txt", sep="\t", row.names = FALSE);
+##library(foreign)
+##nfl.d2$MONTH <- as.numeric(nfl.d2$MONTH);
+##write.foreign(nfl.d2, "/Users/tjzhou/Desktop/MyGithub/BUdatastory2017/Project/BUSD_finalproject/data2.txt", "/Users/tjzhou/Desktop/MyGithub/BUdatastory2017/Project/BUSD_finalproject/data2.sas", package="SAS");
+```
+
+
+## Conclusion
+
+So what can we conclude about this story...  
+
+
+
